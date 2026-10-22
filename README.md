@@ -22,6 +22,12 @@ Ouvrir `documents/Moimed-Personnage.svg`. Les dix images PNG sont incorporées d
 
 Ce SVG contient des **éléments bitmap**, pas des contours vectoriels éditables point par point. Il ne s'agit pas d'un fichier `.ai` natif. Une vraie version vectorielle demanderait un travail de tracé.
 
+## Version vectorielle
+
+`documents/Moimed-Vectoriel.svg` contient le personnage d'origine vectorisé à partir des dix calques, avec un groupe par élément. Les contours sont de vrais tracés éditables point par point.
+
+Pour régénérer le fichier : `pip install vtracer pillow`, puis `python3 scripts/vectorize.py assets/base/calques documents/Moimed-Vectoriel.svg`.
+
 ## Exemple déjà implémenté
 
 Ouvrir `exemple-web/index.html` par double-clic. Les calques et masques sont incorporés dans `assets-data.js`, ce qui évite de charger un manifeste avec `fetch` depuis un fichier local.
