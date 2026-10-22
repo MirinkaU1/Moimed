@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "width": 1024,
+  "height": 1536,
+  "direction": "face",
+  "layers": [
+    { "id": "hoodie", "file": "calques/hoodie.png", "label": "Pull à capuche", "recolor": { "id": "haut", "mask": "hoodie", "reference": 80 } },
+    { "id": "short", "file": "calques/short.png", "label": "Short", "recolor": { "id": "pantalon", "mask": "short", "reference": 80 } },
+    { "id": "jambes", "file": "calques/jambes.png", "label": "Jambes pour short", "recolor": { "id": "peau", "mask": "jambes", "reference": 185 } },
+    { "id": "mains", "file": "calques/mains.png", "label": "Mains pour manches longues", "recolor": { "id": "peau", "mask": "peau", "reference": 171 } }
+  ],
+  "masks": ["hoodie", "short", "jambes"],
+  "wardrobe": {
+    "tops": [
+      { "id": "tshirt", "label": "T-shirt", "indices": [6], "arms": [1, 2] },
+      { "id": "hoodie", "label": "Pull à capuche", "indices": [10], "arms": [13] }
+    ],
+    "bottoms": [
+      { "id": "pantalon", "label": "Pantalon", "indices": [3] },
+      { "id": "short", "label": "Short", "indices": [12, 11] }
+    ]
+  },
+  "note": "Canevas commun 1024 × 1536, position (0, 0). Le short remplace le pantalon avec son calque de jambes. Le hoodie utilise les mains séparées."
+}

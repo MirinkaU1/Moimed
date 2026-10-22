@@ -8,7 +8,7 @@ import { PNG } from 'pngjs';
 import { initializeCanvas, readPsd } from 'ag-psd';
 
 const require = createRequire(import.meta.url);
-const { compose, tint } = require('../exemple-web/pixels.js');
+const { compose, tint, outfitIndices } = require('../exemple-web/pixels.js');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'assets/base/manifest.json'), 'utf8'));
 initializeCanvas(() => { throw new Error('Canvas non requis.'); }, (width, height) => ({ width, height, data: new Uint8ClampedArray(width * height * 4) }));
@@ -124,7 +124,7 @@ test('les masques, références et exemple de couleur sont conservés séparéme
   const references = psd.children.find(group => group.name.startsWith('03 -'));
   const example = psd.children.find(group => group.name.startsWith('02 -'));
   assert.ok(masks.hidden && references.hidden && example.hidden);
-  assert.equal(masks.children.length, 7); assert.equal(references.children.length, 3); assert.equal(example.children.length, 10);
+  assert.equal(masks.children.length, 10); assert.equal(references.children.length, 3); assert.equal(example.children.length, 10);
   visibleEqual(masks.children.find(layer => layer.name === 'Masque - pupilles').imageData, pupilMask);
   visibleEqual(masks.children.find(layer => layer.name === 'Masque - tshirt').imageData, shirtMask);
   for (const mask of manifest.masks) assert.ok(fs.existsSync(path.join(root, 'assets/base/masques', `${mask}.png`)));
@@ -142,9 +142,87 @@ test('le SVG contient dix images incorporées et aucun lien de PNG externe', () 
 test('l’exemple web embarque les calques pour fonctionner sans fetch local', () => {
   const source = fs.readFileSync(path.join(root, 'exemple-web/assets-data.js'), 'utf8');
   const data = JSON.parse(source.replace(/^globalThis.MOIMED_ASSETS = /, '').replace(/;\s*$/, ''));
-  assert.equal(data.layers.length, 10); assert.equal(Object.keys(data.masks).length, 7);
+  assert.equal(data.layers.length, 14); assert.equal(Object.keys(data.masks).length, 10);
   assert.ok(data.layers.every(layer => layer.src.startsWith('data:image/png;base64,')));
   visibleEqual(PNG.sync.read(Buffer.from(data.masks.pupilles.split(',')[1], 'base64')), pupilMask);
   visibleEqual(PNG.sync.read(Buffer.from(data.masks.tshirt.split(',')[1], 'base64')), shirtMask);
   for (const reference of data.references) assert.ok(fs.existsSync(path.resolve(root, 'exemple-web', reference.src)));
+});
+
+const browserSource = fs.readFileSync(path.join(root, 'exemple-web/assets-data.js'), 'utf8');
+const browserData = JSON.parse(browserSource.replace(/^globalThis.MOIMED_ASSETS = /, '').replace(/;\s*$/, ''));
+const decodeUri = uri => PNG.sync.read(Buffer.from(uri.split(',')[1], 'base64'));
+const wardrobeLayers = browserData.layers.map(layer => decodeUri(layer.src));
+
+test('les quatre associations remplacent les vêtements et leurs calques de peau', () => {
+  assert.deepEqual(outfitIndices(browserData.wardrobe), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  for (const top of ['tshirt', 'hoodie']) for (const bottom of ['pantalon', 'short']) {
+    const indices = outfitIndices(browserData.wardrobe, top, bottom);
+    assert.equal(new Set(indices).size, indices.length);
+    assert.equal(indices.includes(6), top === 'tshirt');
+    assert.equal(indices.includes(10), top === 'hoodie');
+    assert.equal(indices.includes(1), top === 'tshirt');
+    assert.equal(indices.includes(2), top === 'tshirt');
+    assert.equal(indices.includes(13), top === 'hoodie');
+    assert.equal(indices.includes(3), bottom === 'pantalon');
+    assert.equal(indices.includes(11), bottom === 'short');
+    assert.equal(indices.includes(12), bottom === 'short');
+    const image = compose(indices.map(index => wardrobeLayers[index]), 1024, 1536);
+    for (const [x, y] of [[512, 490], [320, 904], [704, 904], [430, 1138], [430, 1300], [600, 1300], [420, 1380], [600, 1380]]) {
+      assert.ok(pixelAt(image, x, y)[3] >= 240, `raccord ouvert ${top}/${bottom} à ${x},${y}`);
+    }
+    for (let x = 400; x <= 620; x += 5) for (let y = 880; y <= 920; y++) {
+      assert.ok(pixelAt(image, x, y)[3] >= 240, `jour à la taille ${top}/${bottom} à ${x},${y}`);
+    }
+    assert.equal(pixelAt(image, 512, 1250)[3], 0, 'le vide entre les jambes reste transparent');
+  }
+});
+
+test('les nouveaux masques protègent les contours et séparent tissu et peau', () => {
+  for (const [name, index] of [['hoodie', 10], ['short', 11], ['jambes', 12]]) {
+    const image = wardrobeLayers[index];
+    assert.equal(image.width, 1024); assert.equal(image.height, 1536);
+    const mask = decodeUri(browserData.masks[name]);
+    let coloredPixels = 0;
+    for (let i = 0; i < image.data.length; i += 4) {
+      if (!mask.data[i + 3]) continue;
+      coloredPixels++;
+      const rgb = [...image.data.subarray(i, i + 3)];
+      assert.ok(image.data[i + 3] > 240);
+      assert.ok(Math.max(...rgb) > 18, `encre dans ${name}`);
+      if (name === 'jambes') assert.ok(rgb[0] - rgb[2] >= 25);
+      else assert.ok(Math.max(...rgb) - Math.min(...rgb) <= 20, `peau dans ${name}`);
+    }
+    assert.ok(coloredPixels > 10000, `masque vide ou incomplet : ${name}`);
+    visibleEqual(mask, PNG.sync.read(fs.readFileSync(path.join(root, 'assets/modulaires/masques', `${name}.png`))));
+  }
+});
+
+test('la ceinture du short remonte sous le T-shirt sans déplacer ses ourlets', () => {
+  const shorts = wardrobeLayers[11], shirt = wardrobeLayers[6];
+  for (let x = 400; x <= 620; x += 10) {
+    assert.ok(pixelAt(shorts, x, 820)[3] >= 240, `taille du short trop basse à ${x}`);
+    assert.equal(pixelAt(shirt, x, 820)[3], 255, `taille non cachée sous le T-shirt à ${x}`);
+  }
+  assert.ok(pixelAt(shorts, 430, 1125)[3] >= 240);
+  assert.equal(pixelAt(shorts, 430, 1160)[3], 0);
+  assert.ok(pixelAt(wardrobeLayers[12], 430, 1160)[3] >= 240);
+});
+
+test('le PSD et le SVG ajoutent la tenue décomposée en conservant les sources', () => {
+  const group = psd.children.find(group => group.name.startsWith('05 -'));
+  assert.ok(group.hidden);
+  const indices = outfitIndices(browserData.wardrobe, 'hoodie', 'short');
+  assert.equal(group.children.length, indices.length);
+  [...group.children].reverse().forEach((layer, i) => {
+    assert.equal(layer.left, 0); assert.equal(layer.top, 0);
+    assert.equal(layer.name, browserData.layers[indices[i]].label);
+    visibleEqual(layer.imageData, wardrobeLayers[indices[i]]);
+  });
+  const expected = PNG.sync.read(fs.readFileSync(path.join(root, 'exports/hoodie-short.png')));
+  visibleEqual(expected, compose(indices.map(i => wardrobeLayers[i]), 1024, 1536));
+  const svg = fs.readFileSync(path.join(root, 'documents/Moimed-Hoodie-Short.svg'), 'utf8');
+  assert.equal((svg.match(/xlink:href="data:image\/png;base64,/g) || []).length, indices.length);
+  assert.ok(fs.existsSync(path.join(root, 'assets/modulaires/sources/hoodie.png')));
+  assert.ok(fs.existsSync(path.join(root, 'assets/modulaires/sources/short-jambes.png')));
 });

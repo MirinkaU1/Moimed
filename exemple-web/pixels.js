@@ -33,7 +33,13 @@
     return { width: image.width, height: image.height, data };
   }
 
-  const api = { compose, tint };
+  function outfitIndices(wardrobe, topId = 'tshirt', bottomId = 'pantalon') {
+    const top = wardrobe.tops.find(item => item.id === topId);
+    const bottom = wardrobe.bottoms.find(item => item.id === bottomId);
+    return [0, ...top.arms, ...bottom.indices, 4, 5, ...top.indices, 7, 8, 9];
+  }
+
+  const api = { compose, tint, outfitIndices };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.MoimedPixels = api;
 })(globalThis);

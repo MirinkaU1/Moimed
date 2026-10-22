@@ -7,6 +7,7 @@
   const status = document.querySelector('#status');
   const selections = {};
   const visible = data.layers.map(() => true);
+  let topId = 'tshirt', bottomId = 'pantalon';
   let referenceMode = false;
   const inputs = new Map();
   const load = src => new Promise((resolve, reject) => {
@@ -25,14 +26,19 @@
     const masks = Object.fromEntries(await Promise.all(Object.entries(data.masks).map(async ([name, src]) => [name, await load(src)])));
     function render() {
       const stack = [];
-      layers.forEach((layer, index) => {
+      const indices = pixels.outfitIndices(data.wardrobe, topId, bottomId);
+      indices.forEach(index => {
+        const layer = layers[index];
         if (!visible[index]) return;
-        const group = data.groups.find(item => item.indices.includes(index));
+        const group = data.layers[index].recolor || data.groups.find(item => item.indices.includes(index));
         stack.push(group && selections[group.id] ? pixels.tint(layer, masks[group.mask], selections[group.id], group.reference, group.flat, group.flatInk) : layer);
       });
       const image = pixels.compose(stack, data.width, data.height);
       context.putImageData(new ImageData(image.data, data.width, data.height), 0, 0);
-      status.textContent = `${visible.filter(Boolean).length} calques assemblés`;
+      document.querySelectorAll('#layers label').forEach((label, index) => { label.hidden = !indices.includes(index); });
+      document.querySelector('#layer-count').textContent = indices.length;
+      if (!referenceMode) document.querySelector('#view-title').textContent = `${data.wardrobe.tops.find(item => item.id === topId).label} · ${data.wardrobe.bottoms.find(item => item.id === bottomId).label}`;
+      status.textContent = `${stack.length} calques assemblés`;
     }
     function selectBase() {
       referenceMode = false;
@@ -40,9 +46,20 @@
       document.querySelector('#view-title').textContent = 'Base à calques';
       document.querySelector('#view-note').textContent = 'Les couleurs modifient les surfaces sélectionnées en conservant les contours.';
       document.querySelector('#export').disabled = false;
-      document.querySelectorAll('.panel input,.panel button').forEach(item => { item.disabled = false; });
+      document.querySelectorAll('.panel input,.panel button,.panel select').forEach(item => { item.disabled = false; });
       document.querySelectorAll('.reference').forEach(button => button.classList.toggle('active', button.id === 'base-view'));
       render();
+    }
+    for (const [id, options] of [['top-model', data.wardrobe.tops], ['bottom-model', data.wardrobe.bottoms]]) {
+      const select = document.querySelector(`#${id}`);
+      for (const option of options) {
+        const item = document.createElement('option'); item.value = option.id; item.textContent = option.label; select.append(item);
+      }
+      select.addEventListener('change', () => {
+        topId = document.querySelector('#top-model').value;
+        bottomId = document.querySelector('#bottom-model').value;
+        render();
+      });
     }
     for (const group of data.groups) {
       const label = document.createElement('label'); label.className = 'color-row';
@@ -68,7 +85,7 @@
         const target = document.querySelector('#reference-image'); target.hidden = false; target.src = reference.src;
         document.querySelector('#view-title').textContent = reference.label;
         document.querySelector('#view-note').textContent = 'Image complète validée. Les calques de cette tenue restent à préparer.';
-        document.querySelectorAll('.panel input,.panel button').forEach(item => { item.disabled = true; });
+        document.querySelectorAll('.panel input,.panel button,.panel select').forEach(item => { item.disabled = true; });
         document.querySelector('#export').disabled = true;
         document.querySelectorAll('.reference').forEach(item => item.classList.toggle('active', item === button));
         status.textContent = 'Tenue de référence';
@@ -79,6 +96,8 @@
     document.querySelector('#reset').addEventListener('click', () => {
       for (const key of Object.keys(selections)) delete selections[key];
       data.groups.forEach(group => { inputs.get(group.id).value = group.defaultColor; });
+      topId = 'tshirt'; bottomId = 'pantalon';
+      document.querySelector('#top-model').value = topId; document.querySelector('#bottom-model').value = bottomId;
       visible.fill(true); document.querySelectorAll('#layers input').forEach(input => { input.checked = true; });
       render();
     });

@@ -4,9 +4,10 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { PNG } from 'pngjs';
 import { writePsdBuffer, initializeCanvas } from 'ag-psd';
+import './prepare-clothes.mjs';
 
 const require = createRequire(import.meta.url);
-const { compose, tint } = require('../exemple-web/pixels.js');
+const { compose, tint, outfitIndices } = require('../exemple-web/pixels.js');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const base = path.join(root, 'assets/base');
 const manifest = JSON.parse(fs.readFileSync(path.join(base, 'manifest.json'), 'utf8'));
@@ -83,12 +84,21 @@ for (const p of largestFabric) {
   shirtMask.data.set([255, 255, 255, Math.round(shirt.data[i + 3] * coverage)], i);
 }
 pngWrite(path.join(base, 'masques/tshirt.png'), shirtMask);
-const masks = Object.fromEntries(manifest.masks.map(name => [name, load(path.join(base, 'masques', `${name}.png`))]));
+const modular = JSON.parse(fs.readFileSync(path.join(root, 'assets/modulaires/manifest.json'), 'utf8'));
+const allLayers = [...layers, ...modular.layers.map(layer => ({ ...layer, x: 0, y: 0, assetRoot: 'assets/modulaires', imageData: load(path.join(root, 'assets/modulaires', layer.file)) }))];
+const maskPaths = Object.fromEntries([
+  ...manifest.masks.map(name => [name, path.join(base, 'masques', `${name}.png`)]),
+  ...modular.masks.map(name => [name, path.join(root, 'assets/modulaires/masques', `${name}.png`)])
+]);
+const masks = Object.fromEntries(Object.entries(maskPaths).map(([name, file]) => [name, load(file)]));
+const imagePath = layer => path.join(root, layer.assetRoot || 'assets/base', layer.file);
+const hoodieIndices = outfitIndices(modular.wardrobe, 'hoodie', 'short');
+const hoodieLayers = hoodieIndices.map(index => allLayers[index]);
 const groups = [
   { id: 'peau', label: 'Peau', mask: 'peau', reference: 171, indices: [0, 1, 2], defaultColor: '#d99b61' },
-  { id: 'pantalon', label: 'Pantalon', mask: 'pantalon', reference: 55, indices: [3], defaultColor: '#44413c' },
+  { id: 'pantalon', label: 'Bas', mask: 'pantalon', reference: 55, indices: [3], defaultColor: '#44413c' },
   { id: 'chaussures', label: 'Chaussures', mask: 'chaussures', reference: 225, indices: [4, 5], defaultColor: '#eee6d5' },
-  { id: 'haut', label: 'T-shirt', mask: 'tshirt', reference: 30, indices: [6], defaultColor: '#242424' },
+  { id: 'haut', label: 'Haut', mask: 'tshirt', reference: 30, indices: [6], defaultColor: '#242424' },
   { id: 'yeux', label: 'Pupilles', mask: 'pupilles', reference: 5, indices: [7], flat: true, flatInk: [5, 4, 4], defaultColor: '#080808' },
   { id: 'cheveux', label: 'Cheveux', mask: 'cheveux', reference: 30, indices: [9], defaultColor: '#28231e' }
 ];
@@ -109,6 +119,7 @@ const document = {
   width, height, imageData: composite,
   imageResources: { resolutionInfo: { horizontalResolution: 72, horizontalResolutionUnit: 'PPI', widthUnit: 'Inches', verticalResolution: 72, verticalResolutionUnit: 'PPI', heightUnit: 'Inches' } },
   children: [
+    { name: '05 - Pull à capuche et short (masqué)', hidden: true, opened: true, children: hoodieLayers.map(layer => toPsd(layer.imageData, layer.label)).reverse() },
     { name: '04 - Masques de couleur (masqué)', hidden: true, opened: false, children: Object.entries(masks).map(([name, image]) => toPsd(image, `Masque - ${name}`)) },
     { name: '03 - Tenues validées (références aplaties)', hidden: true, opened: false, children: references.map(item => toPsd(load(path.join(root, 'assets/tenues-validees', item.file)), item.label)) },
     { name: '02 - Exemple couleurs (masqué)', hidden: true, opened: false, children: layers.map((layer, i) => toPsd(example[i], layer.label)).reverse() },
@@ -118,9 +129,10 @@ const document = {
 fs.writeFileSync(path.join(root, 'documents/Moimed-Personnage.psd'), writePsdBuffer(document, { generateThumbnail: false, trimImageData: false, noBackground: true }));
 pngWrite(path.join(root, 'exports/personnage-assemble.png'), composite);
 pngWrite(path.join(root, 'exports/exemple-couleurs.png'), compose(example, width, height));
+pngWrite(path.join(root, 'exports/hoodie-short.png'), compose(hoodieLayers.map(layer => layer.imageData), width, height));
 
 const xml = value => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[char]));
-const svgLayer = (layer, index) => `<g id="calque-${index}" inkscape:groupmode="layer" inkscape:label="${xml(layer.label)}"><title>${xml(layer.label)}</title><image x="0" y="0" width="${width}" height="${height}" xlink:href="${uri(path.join(base, layer.file))}"/></g>`;
+const svgLayer = (layer, index) => `<g id="calque-${index}" inkscape:groupmode="layer" inkscape:label="${xml(layer.label)}"><title>${xml(layer.label)}</title><image x="0" y="0" width="${width}" height="${height}" xlink:href="${uri(imagePath(layer))}"/></g>`;
 const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
 <title>Moimed - personnage assemblé en éléments bitmap séparés</title>
@@ -128,10 +140,11 @@ const svg = `<?xml version="1.0" encoding="UTF-8"?>
 ${layers.map(svgLayer).join('\n')}
 </svg>`;
 fs.writeFileSync(path.join(root, 'documents/Moimed-Personnage.svg'), svg);
+fs.writeFileSync(path.join(root, 'documents/Moimed-Hoodie-Short.svg'), svg.replace(layers.map(svgLayer).join('\n'), hoodieLayers.map(svgLayer).join('\n')));
 const browserData = {
-  width, height, groups, preset,
-  layers: layers.map(({ imageData, ...layer }) => ({ ...layer, src: uri(path.join(base, layer.file)) })),
-  masks: Object.fromEntries(manifest.masks.map(name => [name, uri(path.join(base, 'masques', `${name}.png`))])),
+  width, height, groups, preset, wardrobe: modular.wardrobe,
+  layers: allLayers.map(({ imageData, ...layer }) => ({ ...layer, src: uri(imagePath(layer)) })),
+  masks: Object.fromEntries(Object.entries(maskPaths).map(([name, file]) => [name, uri(file)])),
   references: references.map(item => ({ ...item, src: `../assets/tenues-validees/${item.file}` }))
 };
 fs.writeFileSync(path.join(root, 'exemple-web/assets-data.js'), `globalThis.MOIMED_ASSETS = ${JSON.stringify(browserData)};\n`);
