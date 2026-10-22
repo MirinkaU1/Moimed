@@ -44,6 +44,30 @@ test('une recoloration conserve les pixels hors masque et leur alpha', () => {
   assert.deepEqual([...tint(image, mask, '#c86432', 100).data], [200, 100, 50, 255, 30, 40, 50, 120]);
 });
 
+const sourceEyes = PNG.sync.read(fs.readFileSync(path.join(root, 'assets/base/calques/40_yeux.png')));
+const pupilMask = PNG.sync.read(fs.readFileSync(path.join(root, 'assets/base/masques/pupilles.png')));
+const redEyes = tint(sourceEyes, pupilMask, '#ff0000', 5, true, [5, 4, 4]);
+const pixelAt = (image, x, y) => [...image.data.subarray((y * image.width + x) * 4, (y * image.width + x) * 4 + 4)];
+
+test('les pupilles se recolorent entièrement, en haut et sur les deux côtés', () => {
+  for (const [x, y] of [[450, 301], [460, 315], [460, 325], [545, 301], [565, 315], [560, 325]]) {
+    const pixel = pixelAt(redEyes, x, y);
+    assert.ok(pixel[0] >= 245 && pixel[1] < 15 && pixel[2] < 15, `pupille incomplète à ${x},${y} : ${pixel}`);
+  }
+});
+
+test('les paupières, leurs extrémités et le blanc des yeux restent intacts', () => {
+  for (const [x, y] of [[420, 295], [490, 295], [540, 295], [618, 303], [420, 315], [610, 315], [458, 335], [563, 335]]) {
+    assert.deepEqual(pixelAt(redEyes, x, y), pixelAt(sourceEyes, x, y), `débordement à ${x},${y}`);
+  }
+});
+
+test('les bords anticrénelés de la pupille conservent leur part de blanc', () => {
+  const image = { width: 1, height: 1, data: new Uint8ClampedArray([125, 124, 124, 255]) };
+  const mask = { data: new Uint8ClampedArray([255, 255, 255, 128]) };
+  assert.deepEqual([...tint(image, mask, '#ff0000', 5, true, [5, 4, 4]).data], [250, 122, 122, 255]);
+});
+
 test('le PSD contient une base visible de dix calques à la bonne position', () => {
   assert.equal(psd.width, 1024); assert.equal(psd.height, 1536);
   const base = psd.children.find(group => group.name.startsWith('01 -'));
@@ -66,6 +90,7 @@ test('les masques, références et exemple de couleur sont conservés séparéme
   const example = psd.children.find(group => group.name.startsWith('02 -'));
   assert.ok(masks.hidden && references.hidden && example.hidden);
   assert.equal(masks.children.length, 7); assert.equal(references.children.length, 3); assert.equal(example.children.length, 10);
+  visibleEqual(masks.children.find(layer => layer.name === 'Masque - pupilles').imageData, pupilMask);
   for (const mask of manifest.masks) assert.ok(fs.existsSync(path.join(root, 'assets/base/masques', `${mask}.png`)));
   const expected = PNG.sync.read(fs.readFileSync(path.join(root, 'exports/exemple-couleurs.png')));
   visibleEqual(expected, compose([...example.children].reverse().map(layer => layer.imageData), 1024, 1536));
@@ -83,5 +108,6 @@ test('l’exemple web embarque les calques pour fonctionner sans fetch local', (
   const data = JSON.parse(source.replace(/^globalThis.MOIMED_ASSETS = /, '').replace(/;\s*$/, ''));
   assert.equal(data.layers.length, 10); assert.equal(Object.keys(data.masks).length, 7);
   assert.ok(data.layers.every(layer => layer.src.startsWith('data:image/png;base64,')));
+  visibleEqual(PNG.sync.read(Buffer.from(data.masks.pupilles.split(',')[1], 'base64')), pupilMask);
   for (const reference of data.references) assert.ok(fs.existsSync(path.resolve(root, 'exemple-web', reference.src)));
 });

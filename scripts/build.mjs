@@ -18,19 +18,50 @@ const load = file => {
 const pngWrite = (file, image) => fs.writeFileSync(file, PNG.sync.write({ ...image, data: Buffer.from(image.data) }));
 const uri = file => `data:image/png;base64,${fs.readFileSync(file).toString('base64')}`;
 const layers = [...manifest.layers].sort((a, b) => a.order - b.order).map(layer => ({ ...layer, imageData: load(path.join(base, layer.file)) }));
+// Les zones sombres entre les deux parties blanches de chaque œil définissent
+// la pupille. Les extrémités de la paupière restent hors de ces limites.
+const eyes = layers[7].imageData;
+const pupilMask = { width, height, data: new Uint8ClampedArray(width * height * 4) };
+const occupied = new Uint8Array(width);
+for (let i = 0; i < eyes.data.length; i += 4) if (eyes.data[i + 3] > 128) occupied[(i / 4) % width] = 1;
+const eyeSpans = [];
+for (let x = 0; x < width;) {
+  if (!occupied[x]) { x++; continue; }
+  const left = x;
+  while (x < width && occupied[x]) x++;
+  if (x - left > 10) eyeSpans.push([left, x - 1]);
+}
+for (const [left, right] of eyeSpans) {
+  for (let y = 0; y < height; y++) {
+    const whites = [];
+    for (let x = left; x <= right; x++) {
+      const i = (y * width + x) * 4;
+      if (eyes.data[i + 3] > 200 && Math.min(eyes.data[i], eyes.data[i + 1], eyes.data[i + 2]) >= 180) whites.push(x);
+    }
+    if (whites.length < 6) continue;
+    for (let x = whites[0] + 1; x < whites[whites.length - 1]; x++) {
+      const i = (y * width + x) * 4;
+      if (eyes.data[i + 3] <= 200 || Math.max(eyes.data[i], eyes.data[i + 1], eyes.data[i + 2]) >= 220) continue;
+      const light = .2126 * eyes.data[i] + .7152 * eyes.data[i + 1] + .0722 * eyes.data[i + 2];
+      const coverage = Math.max(0, Math.min(1, (245 - light) / 240));
+      pupilMask.data.set([255, 255, 255, Math.round(coverage * 255)], i);
+    }
+  }
+}
+pngWrite(path.join(base, 'masques/pupilles.png'), pupilMask);
 const masks = Object.fromEntries(manifest.masks.map(name => [name, load(path.join(base, 'masques', `${name}.png`))]));
 const groups = [
   { id: 'peau', label: 'Peau', mask: 'peau', reference: 171, indices: [0, 1, 2], defaultColor: '#d99b61' },
   { id: 'pantalon', label: 'Pantalon', mask: 'pantalon', reference: 55, indices: [3], defaultColor: '#44413c' },
   { id: 'chaussures', label: 'Chaussures', mask: 'chaussures', reference: 225, indices: [4, 5], defaultColor: '#eee6d5' },
   { id: 'haut', label: 'T-shirt', mask: 'tshirt', reference: 30, indices: [6], defaultColor: '#242424' },
-  { id: 'yeux', label: 'Pupilles', mask: 'pupilles', reference: 1, indices: [7], flat: true, defaultColor: '#080808' },
+  { id: 'yeux', label: 'Pupilles', mask: 'pupilles', reference: 5, indices: [7], flat: true, flatInk: [5, 4, 4], defaultColor: '#080808' },
   { id: 'cheveux', label: 'Cheveux', mask: 'cheveux', reference: 30, indices: [9], defaultColor: '#28231e' }
 ];
 const preset = { peau: '#ad754f', haut: '#435f8f', pantalon: '#303c55', cheveux: '#66422b' };
 const example = layers.map((layer, index) => {
   const group = groups.find(item => item.indices.includes(index));
-  return group && preset[group.id] ? tint(layer.imageData, masks[group.mask], preset[group.id], group.reference, group.flat) : layer.imageData;
+  return group && preset[group.id] ? tint(layer.imageData, masks[group.mask], preset[group.id], group.reference, group.flat, group.flatInk) : layer.imageData;
 });
 const composite = compose(layers.map(layer => layer.imageData), width, height);
 const references = [

@@ -16,7 +16,7 @@
     return { width, height, data };
   }
 
-  function tint(image, mask, hex, reference, flat = false) {
+  function tint(image, mask, hex, reference, flat = false, flatInk = [0, 0, 0]) {
     const color = hex.replace('#', '').match(/../g).map(value => parseInt(value, 16));
     const data = new Uint8ClampedArray(image.data);
     for (let i = 0; i < data.length; i += 4) {
@@ -24,7 +24,11 @@
       const weight = mask.data[i + 3] / 255;
       const light = .2126 * data[i] + .7152 * data[i + 1] + .0722 * data[i + 2];
       const shade = flat ? 1 : Math.max(.12, Math.min(1.35, light / reference));
-      for (let c = 0; c < 3; c++) data[i + c] = limit(data[i + c] * (1 - weight) + limit(color[c] * shade) * weight);
+      for (let c = 0; c < 3; c++) {
+        data[i + c] = flat
+          ? limit(data[i + c] + (color[c] - flatInk[c]) * weight)
+          : limit(data[i + c] * (1 - weight) + limit(color[c] * shade) * weight);
+      }
     }
     return { width: image.width, height: image.height, data };
   }

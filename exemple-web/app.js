@@ -28,7 +28,7 @@
       layers.forEach((layer, index) => {
         if (!visible[index]) return;
         const group = data.groups.find(item => item.indices.includes(index));
-        stack.push(group && selections[group.id] ? pixels.tint(layer, masks[group.mask], selections[group.id], group.reference, group.flat) : layer);
+        stack.push(group && selections[group.id] ? pixels.tint(layer, masks[group.mask], selections[group.id], group.reference, group.flat, group.flatInk) : layer);
       });
       const image = pixels.compose(stack, data.width, data.height);
       context.putImageData(new ImageData(image.data, data.width, data.height), 0, 0);
