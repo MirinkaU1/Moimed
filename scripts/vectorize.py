@@ -23,7 +23,7 @@ SHADOW_DEPTH = 9
 HEM_BAND = {"30_tshirt": (660, 740), "10_pantalon": (850, 925)}
 UPSCALE = {"20_chaussure_gauche_image": 3, "21_chaussure_droite_image": 3}
 OPEN = {"01_bras_gauche_image", "02_bras_droit_image", "30_tshirt"}
-UNDER = {"hoodie": {"10_pantalon": ("pantalon-sous-pull", "Pantalon sous le pull", 885, 930)}}
+WIDEN = {"hoodie": dict(rows=(840, 920), left=368, right=658, gap=3, edge=12, span=70)}
 TINT = {"cheveux": dict(erode=19), "pupilles": {}, "tshirt": dict(ink=13), "pantalon": dict(ink=20), "hoodie": dict(ink=30),
         "short": dict(ink=30), "peau": dict(ink=60), "jambes": dict(ink=60), "chaussures": dict(ink=20)}
 
@@ -145,19 +145,41 @@ def masked(px, mask, rule, k):
     return out
 
 
-def tuck_under(im, top, y0, y1):
-    px, tp = im.load(), top.load()
-    hems = {}
-    for x in range(im.width):
-        hem = max((y for y in range(y0, y1) if tp[x, y][3] >= 140), default=None)
-        if hem is not None and hem > y0 + 5:
-            hems[x] = hem
-    present = sorted(hems)
-    for x in range(im.width):
-        nearest = min(present, key=lambda c: abs(c - x))
-        for y in range(y0 - 40, hems[nearest]):
-            if tp[x, y][3] < 140:
-                px[x, y] = (0, 0, 0, 0)
+def runs(alpha, y, width):
+    found, x = [], 0
+    while x < width:
+        if alpha[x, y] >= 140:
+            begin = x
+            while x < width and alpha[x, y] >= 140:
+                x += 1
+            found.append((begin, x - 1))
+        else:
+            x += 1
+    return found
+
+
+def widen(im, reference, rows, left, right, gap, edge, span):
+    alpha, src, w = reference.load(), im.copy().load(), im.width
+    dst = im.load()
+    for y in range(*rows):
+        row = runs(alpha, y, w)
+        body = next((i for i, (a, b) in enumerate(row) if a <= w // 2 <= b), None)
+        if body is None:
+            continue
+        l, r = row[body]
+        if r - l < 2 * span + 20:
+            continue
+        stop_l = row[body - 1][1] + gap if body > 0 else 0
+        stop_r = row[body + 1][0] - gap if body + 1 < len(row) else w - 1
+        dl = max(0, min(l - left, l - max(left, stop_l)))
+        dr = max(0, min(right - r, min(right, stop_r) - r))
+        for x in range(edge):
+            dst[l - dl + x, y] = src[l + x, y]
+            dst[r + dr - x, y] = src[r - x, y]
+        for x in range(l - dl + edge, l + span):
+            dst[x, y] = src[l + edge + (x - l + dl - edge) * (span - edge) // (span - edge + dl), y]
+        for x in range(r - span + 1, r + dr - edge + 1):
+            dst[x, y] = src[r - span + 1 + (x - r + span - 1) * (span - edge) // (span - edge + dr), y]
     return im
 
 
@@ -178,29 +200,18 @@ files = [roots[layer.get("assetRoot", "assets/base")] / layer["file"] for layer 
 layers = {f.stem: f for f in files}
 tmp = tempfile.mkdtemp()
 traced = []
-TINT_MASK = {}
 for index, (f, layer) in enumerate(zip(files, meta["layers"])):
     key = f.stem
-    px, k = prepare(Image.open(f).convert("RGBA"), key, layers)
+    source = Image.open(f).convert("RGBA")
+    reshape = (lambda image: widen(image, source.getchannel("A"), **WIDEN[key])) if key in WIDEN else (lambda image: image)
+    px, k = prepare(reshape(source.copy()), key, layers)
     group = layer.get("recolor") or next((g for g in meta["groups"] if index in g["indices"]), None)
-    if group:
-        TINT_MASK[key] = group["mask"]
     tint = None
     if group:
-        region = masked(px, Image.open(mask_files[group["mask"]]), TINT[group["mask"]], k)
+        region = masked(px, reshape(Image.open(mask_files[group["mask"]]).convert("RGBA")), TINT[group["mask"]], k)
         tint = {"group": group["id"], "reference": median_light(region), "flat": group.get("flat", False),
                 "flatInk": group.get("flatInk", [0, 0, 0]), "body": trace(region, key, tmp, "-teinte")}
     traced.append({"id": NAMES[key], "label": layer["label"], "scale": 1 / k, "body": trace(px, key, tmp), "tint": tint})
-variants = {}
-for top_id, under in UNDER.items():
-    top = Image.open(layers[top_id]).convert("RGBA")
-    for key, (variant_id, label, y0, y1) in under.items():
-        index = list(layers).index(key)
-        px, k = prepare(tuck_under(Image.open(layers[key]).convert("RGBA"), top, y0, y1), key, layers)
-        tint = dict(traced[index]["tint"])
-        tint["body"] = trace(masked(px, Image.open(mask_files[TINT_MASK[key]]), TINT[TINT_MASK[key]], k), key, tmp, "-sous-teinte")
-        variants.setdefault(top_id, {})[index] = len(traced)
-        traced.append({"id": variant_id, "label": label, "scale": 1 / k, "body": trace(px, key, tmp, "-sous"), "tint": tint})
 
 
 def group_svg(layer):
@@ -213,6 +224,5 @@ svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1536" width="1
 (ROOT / "documents/Moimed-Vectoriel.svg").write_text(svg)
 web = {key: meta[key] for key in ("width", "height", "groups", "preset", "wardrobe", "references")}
 web["layers"] = traced
-web["variants"] = variants
 (ROOT / "exemple-web/vector-data.js").write_text(f"globalThis.MOIMED_VECTOR = {json.dumps(web, ensure_ascii=False)};\n")
 print(len(svg) // 1024, "Ko SVG,", (ROOT / "exemple-web/vector-data.js").stat().st_size // 1024, "Ko atelier")

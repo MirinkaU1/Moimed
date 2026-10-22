@@ -48,8 +48,7 @@
   }
 
   function render() {
-    const variants = data.variants[topId] || {};
-    const indices = outfitIndices(data.wardrobe, topId, bottomId).map(index => variants[index] ?? index);
+    const indices = outfitIndices(data.wardrobe, topId, bottomId);
     preview.replaceChildren(...indices.filter(index => visible[index]).map(index => groups[index]));
     document.querySelectorAll('#layers label').forEach((label, index) => { label.hidden = !indices.includes(index); });
     document.querySelector('#layer-count').textContent = indices.length;
