@@ -1,6 +1,7 @@
 import json, re, tempfile, vtracer
+import numpy as np
 from pathlib import Path
-from PIL import Image, ImageChops, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 NAMES = {"00_peau_tete_cou": "tete-cou", "01_bras_gauche_image": "bras-gauche", "02_bras_droit_image": "bras-droit",
          "10_pantalon": "pantalon", "20_chaussure_gauche_image": "chaussure-gauche", "21_chaussure_droite_image": "chaussure-droite",
@@ -23,8 +24,8 @@ SHADOW_DEPTH = 9
 HEM_BAND = {"30_tshirt": (660, 740), "10_pantalon": (850, 925)}
 UPSCALE = {"20_chaussure_gauche_image": 3, "21_chaussure_droite_image": 3}
 OPEN = {"01_bras_gauche_image", "02_bras_droit_image", "30_tshirt"}
-WIDEN = {"hoodie": dict(rows=(840, 920), left=368, right=658, gap=3, edge=12, span=70)}
-TINT = {"cheveux": dict(erode=19), "pupilles": {}, "tshirt": dict(ink=13), "pantalon": dict(ink=20), "hoodie": dict(ink=30),
+RESTYLE = {"hoodie": dict(hem=dict(top=846, seam=860, bottom=914, left=368, right=658, outline=11, radius=14, clear=930)), "short": {}}
+TINT = {"cheveux": dict(erode=19), "pupilles": {}, "tshirt": dict(ink=13), "pantalon": dict(ink=20), "hoodie": dict(ink=30, zone="alpha"),
         "short": dict(ink=30), "peau": dict(ink=60), "jambes": dict(ink=60), "chaussures": dict(ink=20)}
 
 
@@ -131,7 +132,7 @@ def masked(px, mask, rule, k):
     if "erode" in rule:
         region = alpha.filter(ImageFilter.MinFilter(rule["erode"])).filter(ImageFilter.MedianFilter(9))
     elif "ink" in rule:
-        zone = mask.filter(ImageFilter.MaxFilter(11)).filter(ImageFilter.MinFilter(11))
+        zone = alpha if rule.get("zone") == "alpha" else mask.filter(ImageFilter.MaxFilter(11)).filter(ImageFilter.MinFilter(11))
         r, g, b = px.convert("RGB").split()
         ink = ImageChops.lighter(ImageChops.lighter(r, g), b).point(lambda v: 255 if v <= rule["ink"] else 0)
         ink = ink.filter(ImageFilter.MinFilter(5)).filter(ImageFilter.MaxFilter(7))
@@ -145,42 +146,69 @@ def masked(px, mask, rule, k):
     return out
 
 
-def runs(alpha, y, width):
-    found, x = [], 0
-    while x < width:
-        if alpha[x, y] >= 140:
-            begin = x
-            while x < width and alpha[x, y] >= 140:
-                x += 1
-            found.append((begin, x - 1))
-        else:
-            x += 1
-    return found
+INK = (12, 11, 10)
 
 
-def widen(im, reference, rows, left, right, gap, edge, span):
-    alpha, src, w = reference.load(), im.copy().load(), im.width
-    dst = im.load()
-    for y in range(*rows):
-        row = runs(alpha, y, w)
-        body = next((i for i, (a, b) in enumerate(row) if a <= w // 2 <= b), None)
-        if body is None:
-            continue
-        l, r = row[body]
-        if r - l < 2 * span + 20:
-            continue
-        stop_l = row[body - 1][1] + gap if body > 0 else 0
-        stop_r = row[body + 1][0] - gap if body + 1 < len(row) else w - 1
-        dl = max(0, min(l - left, l - max(left, stop_l)))
-        dr = max(0, min(right - r, min(right, stop_r) - r))
-        for x in range(edge):
-            dst[l - dl + x, y] = src[l + x, y]
-            dst[r + dr - x, y] = src[r - x, y]
-        for x in range(l - dl + edge, l + span):
-            dst[x, y] = src[l + edge + (x - l + dl - edge) * (span - edge) // (span - edge + dl), y]
-        for x in range(r - span + 1, r + dr - edge + 1):
-            dst[x, y] = src[r - span + 1 + (x - r + span - 1) * (span - edge) // (span - edge + dr), y]
-    return im
+def binary(mask):
+    return Image.fromarray(np.where(mask, 255, 0).astype(np.uint8))
+
+
+def restyle(im, outline=11, inner=1, shade=(.78, 1.0, 1.14), hem=None):
+    rgba = np.array(im)
+    a = original = rgba[..., 3] >= 140
+    ink = (rgba[..., :3].max(axis=2) <= 30) & a
+    ink = binary(ink).filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.MinFilter(3))
+    ink = (np.array(ink.filter(ImageFilter.MaxFilter(1 + 2 * inner))) > 0) & a
+    closed = np.array(binary(a).filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.MinFilter(9))) > 0
+    near_background = np.array(binary(~closed).filter(ImageFilter.MaxFilter(2 * outline + 1))) > 0
+    silhouette = a & near_background
+    ink |= closed & ~a
+    a = a | closed
+    fabric = a & ~ink & ~silhouette
+    smooth = np.array(im.convert("RGB").filter(ImageFilter.MedianFilter(9))).astype(float)
+    light = smooth @ [.2126, .7152, .0722]
+    base_light = np.median(light[fabric])
+    base = np.median(smooth[fabric], axis=0)
+    level = np.digitize(light / base_light, [(shade[0] + shade[1]) / 2, (shade[1] + shade[2]) / 2])
+    level = np.array(Image.fromarray(level.astype(np.uint8)).filter(ImageFilter.ModeFilter(15)))
+    tones = np.array([base * s for s in shade]).clip(0, 255)
+    out = np.zeros_like(rgba)
+    out[fabric, :3] = tones[level[fabric]]
+    out[ink | silhouette, :3] = INK
+    out[a, 3] = 255
+    result = Image.fromarray(out).copy()
+    if hem:
+        draw_hem(result, original, tones, **hem)
+    return result
+
+
+def body_edges(alpha, y):
+    xs = np.flatnonzero(alpha[y])
+    mid = alpha.shape[1] // 2
+    left = xs[xs <= mid]
+    right = xs[xs >= mid]
+    l = left[-1]
+    while l > 0 and alpha[y, l - 1]:
+        l -= 1
+    r = right[0]
+    while r < alpha.shape[1] - 1 and alpha[y, r + 1]:
+        r += 1
+    return l, r
+
+
+def draw_hem(im, alpha, tones, top, seam, bottom, left, right, outline, radius, clear):
+    l, r = body_edges(alpha, top)
+    px = im.load()
+    for y in range(top, clear):
+        bl, br = body_edges(alpha, y) if alpha[y, alpha.shape[1] // 2] else (left, right)
+        for x in range(bl, br + 1):
+            px[x, y] = (0, 0, 0, 0)
+    draw = ImageDraw.Draw(im)
+    base, band = tuple(int(c) for c in tones[1]) + (255,), tuple(int(c) for c in tones[0] * .5 + tones[1] * .5) + (255,)
+    draw.polygon([(l, top), (r, top), (right, seam + outline), (left, seam + outline)], fill=INK + (255,))
+    draw.polygon([(l + outline, top), (r - outline, top), (right - outline, seam + outline), (left + outline, seam + outline)], fill=base)
+    draw.rounded_rectangle((left, seam, right, bottom), radius=radius, fill=INK + (255,))
+    draw.rounded_rectangle((left + outline, seam + outline * 2 // 3, right - outline, bottom - outline), radius=max(1, radius - outline // 2), fill=band)
 
 
 def median_light(image):
@@ -203,12 +231,13 @@ traced = []
 for index, (f, layer) in enumerate(zip(files, meta["layers"])):
     key = f.stem
     source = Image.open(f).convert("RGBA")
-    reshape = (lambda image: widen(image, source.getchannel("A"), **WIDEN[key])) if key in WIDEN else (lambda image: image)
-    px, k = prepare(reshape(source.copy()), key, layers)
+    if key in RESTYLE:
+        source = restyle(source, **RESTYLE[key])
+    px, k = prepare(source, key, layers)
     group = layer.get("recolor") or next((g for g in meta["groups"] if index in g["indices"]), None)
     tint = None
     if group:
-        region = masked(px, reshape(Image.open(mask_files[group["mask"]]).convert("RGBA")), TINT[group["mask"]], k)
+        region = masked(px, Image.open(mask_files[group["mask"]]), TINT[group["mask"]], k)
         tint = {"group": group["id"], "reference": median_light(region), "flat": group.get("flat", False),
                 "flatInk": group.get("flatInk", [0, 0, 0]), "body": trace(region, key, tmp, "-teinte")}
     traced.append({"id": NAMES[key], "label": layer["label"], "scale": 1 / k, "body": trace(px, key, tmp), "tint": tint})

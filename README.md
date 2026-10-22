@@ -26,7 +26,7 @@ Ce SVG contient des **éléments bitmap**, pas des contours vectoriels éditable
 
 `documents/Moimed-Vectoriel.svg` contient le personnage d'origine vectorisé à partir des dix calques, avec un groupe par élément. Les contours sont de vrais tracés éditables point par point.
 
-`scripts/vectorize.py` produit ce fichier et `exemple-web/vector-data.js`, qui contient les quatorze calques vectoriels de l'atelier (tenues modulaires comprises) et leurs zones recolorables. Le bas du pull à capuche y est élargi pour couvrir la taille du pantalon et du short. Pour régénérer après `npm run build` : `pip install vtracer pillow`, puis `python3 scripts/vectorize.py`.
+`scripts/vectorize.py` produit ce fichier et `exemple-web/vector-data.js`, qui contient les quatorze calques vectoriels de l'atelier (tenues modulaires comprises) et leurs zones recolorables. Le pull à capuche et le short y sont redessinés dans le style des autres vêtements (contour épais, aplats) et le bas du pull est élargi pour couvrir la taille du pantalon et du short. Pour régénérer après `npm run build` : `pip install vtracer pillow`, puis `python3 scripts/vectorize.py`.
 
 ## Exemple déjà implémenté
 
