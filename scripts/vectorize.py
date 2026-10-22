@@ -24,7 +24,7 @@ SHADOW_DEPTH = 9
 HEM_BAND = {"30_tshirt": (660, 740), "10_pantalon": (850, 925)}
 UPSCALE = {"20_chaussure_gauche_image": 3, "21_chaussure_droite_image": 3}
 OPEN = {"01_bras_gauche_image", "02_bras_droit_image", "30_tshirt"}
-RESTYLE = {"hoodie": dict(hem=dict(top=846, seam=860, bottom=914, left=368, right=658, outline=11, radius=14, clear=930)), "short": {}}
+RESTYLE = {"hoodie": dict(hem=dict(top=846, seam=858, bottom=914, left=368, right=658, outline=11, radius=14, clear=930, sag=6, line=6, rib=15, cuffs=(869, 898))), "short": {}}
 TINT = {"cheveux": dict(erode=19), "pupilles": {}, "tshirt": dict(ink=13), "pantalon": dict(ink=20), "hoodie": dict(ink=30, zone="alpha"),
         "short": dict(ink=30), "peau": dict(ink=60), "jambes": dict(ink=60), "chaussures": dict(ink=20)}
 
@@ -196,19 +196,35 @@ def body_edges(alpha, y):
     return l, r
 
 
-def draw_hem(im, alpha, tones, top, seam, bottom, left, right, outline, radius, clear):
+def draw_hem(im, alpha, tones, top, seam, bottom, left, right, outline, radius, clear, sag, line, rib, cuffs):
     l, r = body_edges(alpha, top)
     px = im.load()
     for y in range(top, clear):
         bl, br = body_edges(alpha, y) if alpha[y, alpha.shape[1] // 2] else (left, right)
         for x in range(bl, br + 1):
             px[x, y] = (0, 0, 0, 0)
+    shadow, base = (tuple(int(c) for c in tone) + (255,) for tone in tones[:2])
+    band = tuple(int(c) for c in tones[0] * .4 + tones[1] * .6) + (255,)
+    groove = tuple(int(c) for c in tones[0] * .8 + tones[1] * .2) + (255,)
+    ink = INK + (255,)
     draw = ImageDraw.Draw(im)
-    base, band = tuple(int(c) for c in tones[1]) + (255,), tuple(int(c) for c in tones[0] * .5 + tones[1] * .5) + (255,)
-    draw.polygon([(l, top), (r, top), (right, seam + outline), (left, seam + outline)], fill=INK + (255,))
-    draw.polygon([(l + outline, top), (r - outline, top), (right - outline, seam + outline), (left + outline, seam + outline)], fill=base)
-    draw.rounded_rectangle((left, seam, right, bottom), radius=radius, fill=INK + (255,))
-    draw.rounded_rectangle((left + outline, seam + outline * 2 // 3, right - outline, bottom - outline), radius=max(1, radius - outline // 2), fill=band)
+    draw.rounded_rectangle((left, seam, right, bottom), radius=radius, fill=ink)
+    draw.rounded_rectangle((left + outline, seam + outline, right - outline, bottom - outline), radius=max(1, radius - outline), fill=band)
+    for x in range(left + outline + rib, right - outline - rib // 2, rib):
+        draw.line([(x, seam + outline + 4), (x, bottom - outline - 4)], fill=groove, width=3)
+    middle, half = (left + right) / 2, (right - left) / 2
+    curve = lambda x: seam + sag * (1 - ((x - middle) / half) ** 2)
+    xs = list(range(right, left - 1, -4))
+    inner = [x for x in xs if left + outline <= x <= right - outline]
+    draw.polygon([(x, curve(x) + line) for x in inner] + [(x, curve(x) + line + 5) for x in reversed(inner)], fill=shadow)
+    draw.polygon([(l, top), (r, top), (right, seam)] + [(x, curve(x) + line) for x in xs] + [(left, seam)], fill=ink)
+    draw.polygon([(l + outline, top), (r - outline, top), (right - outline, seam)] + [(x, curve(x)) for x in inner] + [(left + outline, seam)], fill=base)
+    y0, y1 = cuffs
+    for y in range(y0, y1):
+        bl, br = body_edges(alpha, y) if alpha[y, alpha.shape[1] // 2] else (left, right)
+        for x in range(im.width):
+            if (x < bl or x > br) and x % rib < 3 and px[x, y][3] and px[x, y][:3] != INK:
+                px[x, y] = groove
 
 
 def median_light(image):
