@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1536" width="1024" height="1536">
+<title>Moimed</title>
+<style>
+.peau{fill:#D39A6B}
+.peau-ombre{fill:#B87C50}
+.cheveux{fill:#1B1715}
+.cheveux-reflet{fill:none;stroke:#3A322E;stroke-width:5;stroke-linecap:round}
+.haut{fill:#141414}
+.haut-pli{fill:none;stroke:#2B2B2B;stroke-width:5;stroke-linecap:round}
+.bas{fill:#3B3936}
+.bas-pli{fill:none;stroke:#2A2826;stroke-width:5;stroke-linecap:round}
+.chaussure{fill:#EFE8DC}
+.semelle{fill:#1B1715}
+.oeillet{fill:#B9B0A2}
+.blanc{fill:#FFFFFF}
+.pupille{fill:#120F0E}
+.reflet{fill:#FFFFFF;opacity:.85}
+path,circle{stroke:#0D0B0A;stroke-width:9;stroke-linejoin:round;stroke-linecap:round}
+.sans-contour,.pupille,.reflet,.oeillet{stroke:none}
+.contour{fill:none}
+.trait-fin{fill:none;stroke-width:4.5}
+.paupiere{fill:none;stroke-width:12}
+.sourcil{fill:none;stroke-width:15}
+</style>
+<g id="bras-gauche"><path class="peau" d="M 302 676 C 294 750 288 830 290 896 C 278 920 280 968 300 986 C 318 1000 340 994 350 978 C 360 960 370 936 368 904 C 370 830 372 760 372 690 Z"/><path class="peau-ombre sans-contour" d="M 304 676 C 302 700 301 715 300 730 C 330 720 352 712 370 708 L 370 690 Z"/><path class="trait-fin" d="M 312 950 C 318 965 322 975 322 988 M 362 926 C 352 934 344 942 340 954"/><path class="contour" d="M 302 676 C 294 750 288 830 290 896 C 278 920 280 968 300 986 C 318 1000 340 994 350 978 C 360 960 370 936 368 904 C 370 830 372 760 372 690 Z"/></g>
+<g id="bras-droit"><path class="peau" d="M 728 676 C 736 750 742 830 740 896 C 752 920 750 968 730 986 C 712 1000 690 994 680 978 C 670 960 660 936 662 904 C 660 830 658 760 658 690 Z"/><path class="peau-ombre sans-contour" d="M 726 676 C 728 700 729 715 730 730 C 700 720 678 712 660 708 L 660 690 Z"/><path class="trait-fin" d="M 718 950 C 712 965 708 975 708 988 M 668 926 C 678 934 686 942 690 954"/><path class="contour" d="M 728 676 C 736 750 742 830 740 896 C 752 920 750 968 730 986 C 712 1000 690 994 680 978 C 670 960 660 936 662 904 C 660 830 658 760 658 690 Z"/></g>
+<g id="pantalon"><path class="bas" d="M 368 876 L 662 876 C 670 1050 676 1250 682 1390 L 558 1394 C 552 1250 540 1100 515 1000 C 490 1100 478 1250 472 1394 L 348 1390 C 354 1250 360 1050 368 876 Z"/><path class="bas-pli" d="M 515 880 L 515 1000 M 515 960 C 535 962 545 950 548 930 M 400 1300 C 410 1320 430 1330 455 1335 M 380 1080 C 390 1120 395 1160 392 1200 M 612 1100 C 620 1150 625 1200 640 1260"/></g>
+<g id="chaussure-gauche"><path class="chaussure" d="M 296 1420 C 300 1392 336 1372 380 1370 C 410 1368 450 1372 470 1382 C 478 1404 480 1428 478 1448 L 474 1466 L 296 1466 C 280 1462 280 1436 296 1420 Z"/><path class="semelle" d="M 286 1444 L 478 1444 L 474 1466 L 298 1466 C 288 1464 284 1456 286 1444 Z"/><path class="trait-fin" d="M 380 1380 C 396 1374 418 1374 436 1380 M 372 1394 C 390 1386 414 1386 436 1394 M 300 1426 C 322 1414 352 1414 372 1426"/><circle class="oeillet" cx="326" cy="1434" r="3"/><circle class="oeillet" cx="342" cy="1436" r="3"/><circle class="oeillet" cx="358" cy="1434" r="3"/></g>
+<g id="chaussure-droite"><path class="chaussure" d="M 734 1420 C 730 1392 694 1372 650 1370 C 620 1368 580 1372 560 1382 C 552 1404 550 1428 552 1448 L 556 1466 L 734 1466 C 750 1462 750 1436 734 1420 Z"/><path class="semelle" d="M 744 1444 L 552 1444 L 556 1466 L 732 1466 C 742 1464 746 1456 744 1444 Z"/><path class="trait-fin" d="M 650 1380 C 634 1374 612 1374 594 1380 M 658 1394 C 640 1386 616 1386 594 1394 M 730 1426 C 708 1414 678 1414 658 1426"/><circle class="oeillet" cx="704" cy="1434" r="3"/><circle class="oeillet" cx="688" cy="1436" r="3"/><circle class="oeillet" cx="672" cy="1434" r="3"/></g>
+<g id="cou"><path class="peau" d="M 472 420 L 558 420 L 560 484 C 540 500 490 500 470 484 Z"/><path class="peau-ombre sans-contour" d="M 472 430 L 558 430 L 558 452 C 540 462 490 462 472 452 Z"/><path class="contour" d="M 472 420 L 558 420 L 560 484 C 540 500 490 500 470 484 Z"/></g>
+<g id="tshirt"><path class="haut" d="M 470 474 C 490 500 540 500 560 474 C 590 480 620 486 642 494 C 680 506 702 530 712 560 C 722 600 730 640 734 680 C 712 696 690 704 666 706 C 664 680 662 660 658 640 C 660 720 662 800 664 888 C 600 898 430 898 366 888 C 368 800 370 720 372 640 C 368 660 366 680 364 706 C 340 704 318 696 296 680 C 300 640 308 600 318 560 C 328 530 350 506 388 494 C 410 486 440 480 470 474 Z"/><path class="haut-pli" d="M 372 640 C 372 600 376 570 382 548 M 658 640 C 658 600 654 570 648 548 M 420 820 C 450 830 470 840 480 860 M 610 760 C 600 790 590 810 580 830"/><path class="trait-fin" d="M 462 478 C 484 512 546 512 568 478"/></g>
+<g id="tete"><path class="peau" d="M 398 300 C 370 284 334 292 336 330 C 338 366 368 382 400 368 Z"/><path class="trait-fin" d="M 382 320 C 366 314 356 324 360 338 C 364 350 374 354 384 350"/><path class="peau" d="M 632 300 C 660 284 696 292 694 330 C 692 366 662 382 630 368 Z"/><path class="trait-fin" d="M 648 320 C 664 314 674 324 670 338 C 666 350 656 354 646 350"/><path class="peau" d="M 392 236 C 388 320 392 392 424 430 C 452 462 578 462 606 430 C 638 392 642 320 638 236 C 600 200 430 200 392 236 Z"/></g>
+<g id="yeux"><clipPath id="clip-oeil-g"><path d="M 402 300 C 422 296 472 296 490 300 C 492 326 476 344 448 344 C 418 344 402 326 402 300 Z"/></clipPath><path class="blanc" d="M 402 300 C 422 296 472 296 490 300 C 492 326 476 344 448 344 C 418 344 402 326 402 300 Z"/><g clip-path="url(#clip-oeil-g)"><circle class="pupille" cx="460" cy="314" r="25"/><circle class="reflet" cx="452" cy="305" r="5"/></g><path class="trait-fin" d="M 416 340 C 432 346 466 346 480 338"/><path class="paupiere" d="M 394 302 C 422 294 474 294 498 302"/><clipPath id="clip-oeil-d"><path d="M 628 300 C 608 296 558 296 540 300 C 538 326 554 344 582 344 C 612 344 628 326 628 300 Z"/></clipPath><path class="blanc" d="M 628 300 C 608 296 558 296 540 300 C 538 326 554 344 582 344 C 612 344 628 326 628 300 Z"/><g clip-path="url(#clip-oeil-d)"><circle class="pupille" cx="570" cy="314" r="25"/><circle class="reflet" cx="562" cy="305" r="5"/></g><path class="trait-fin" d="M 614 340 C 598 346 564 346 550 338"/><path class="paupiere" d="M 636 302 C 608 294 556 294 532 302"/></g>
+<g id="sourcils"><path class="sourcil" d="M 410 268 C 436 261 476 261 494 266"/><path class="sourcil" d="M 620 268 C 594 261 554 261 536 266"/></g>
+<g id="cheveux"><path class="cheveux" d="M 338 312 C 312 290 300 250 306 215 C 296 190 300 165 318 150 C 330 118 352 104 380 104 C 400 82 430 74 455 80 C 480 62 510 62 530 72 C 560 64 590 74 602 92 C 630 92 652 104 662 122 C 690 132 706 150 706 172 C 722 192 722 220 712 240 C 716 268 708 296 690 316 C 672 306 650 304 640 300 C 640 292 636 286 628 284 C 628 262 616 244 600 236 C 596 250 588 258 576 262 C 572 244 560 232 544 226 C 538 242 528 252 516 256 C 512 240 502 228 488 222 C 480 238 468 248 454 252 C 452 238 444 228 432 222 C 422 236 410 246 400 254 C 398 272 398 292 400 306 C 380 300 356 304 338 312 Z"/><path class="cheveux-reflet" d="M 350 190 C 372 170 404 158 436 156 M 470 112 C 500 110 532 118 556 134 M 600 140 C 632 150 662 174 678 204 M 412 128 C 434 140 446 162 448 190 M 566 168 C 586 180 600 200 606 222 M 340 262 C 340 240 348 222 362 210"/></g>
+</svg>
