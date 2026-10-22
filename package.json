@@ -1,0 +1,15 @@
+{
+  "name": "moimed-personnages",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bibliothèque de calques et exemple local de réassemblage du personnage 2D.",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node --test scripts/project.test.mjs"
+  },
+  "devDependencies": {
+    "ag-psd": "^31.0.3",
+    "pngjs": "^7.0.0"
+  }
+}

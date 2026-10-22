@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "direction": "face",
+  "width": 1024,
+  "height": 1536,
+  "anchor": {
+    "x": 512,
+    "y": 1485
+  },
+  "layers": [
+    {
+      "x": 0,
+      "y": 0,
+      "order": 0,
+      "file": "calques/00_peau_tete_cou.png",
+      "label": "Peau - tete et cou"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "order": 1,
+      "file": "calques/01_bras_gauche_image.png",
+      "label": "Bras gauche dans image"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "order": 2,
+      "file": "calques/02_bras_droit_image.png",
+      "label": "Bras droit dans image"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "order": 3,
+      "file": "calques/10_pantalon.png",
+      "label": "Pantalon"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "order": 4,
+      "file": "calques/20_chaussure_gauche_image.png",
+      "label": "Chaussure gauche dans image"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "order": 5,
+      "file": "calques/21_chaussure_droite_image.png",
+      "label": "Chaussure droite dans image"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "order": 6,
+      "file": "calques/30_tshirt.png",
+      "label": "T-shirt"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "order": 7,
+      "file": "calques/40_yeux.png",
+      "label": "Yeux"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "order": 8,
+      "file": "calques/50_sourcils.png",
+      "label": "Sourcils"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "order": 9,
+      "file": "calques/60_cheveux.png",
+      "label": "Cheveux"
+    }
+  ],
+  "masks": [
+    "peau",
+    "pantalon",
+    "chaussures",
+    "tshirt",
+    "pupilles",
+    "sourcils",
+    "cheveux"
+  ],
+  "note": "Tous les PNG ont le meme canevas. Ne pas recadrer individuellement. Gauche/droite designent le cote dans image."
+}
