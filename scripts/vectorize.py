@@ -24,11 +24,13 @@ for f in sorted(glob.glob(f"{src_dir}/*.png")):
     key = os.path.basename(f)[:-4]
     im = Image.open(f).convert("RGBA")
     if key in EXTEND_TOP:
-        top = im.getchannel("A").getbbox()[1]
-        ref = top + 14
-        row = im.crop((0, ref, im.width, ref + 1))
-        for y in range(top - EXTEND_TOP[key], ref):
-            im.paste(row, (0, y))
+        px = im.load()
+        top = next(y for y in range(im.height) if sum(px[x, y][3] >= 140 for x in range(im.width)) >= 20)
+        for x in range(im.width):
+            first = next((y for y in range(top, top + 10) if px[x, y][3] >= 140), None)
+            if first is not None:
+                for y in range(top - EXTEND_TOP[key], first):
+                    px[x, y] = px[x, first][:3] + (255,)
     k = UPSCALE.get(key, 1)
     if k > 1:
         im = im.resize((im.width * k, im.height * k), Image.Resampling.LANCZOS)
