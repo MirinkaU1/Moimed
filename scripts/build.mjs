@@ -49,6 +49,40 @@ for (const [left, right] of eyeSpans) {
   }
 }
 pngWrite(path.join(base, 'masques/pupilles.png'), pupilMask);
+// Seul le tissu relié au corps du T-shirt est recolorable. Les fragments
+// isolés de peau et de pantalon, l'encre et les bords transparents sont exclus.
+const shirt = layers[6].imageData;
+const shirtMask = { width, height, data: new Uint8ClampedArray(width * height * 4) };
+const fabric = new Uint8Array(width * height);
+for (let p = 0; p < fabric.length; p++) {
+  const i = p * 4;
+  fabric[p] = shirt.data[i + 3] > 200 && Math.max(shirt.data[i], shirt.data[i + 1], shirt.data[i + 2]) > 13 ? 1 : 0;
+}
+const queue = new Int32Array(width * height);
+let largestFabric = new Int32Array(0);
+for (let p = 0; p < fabric.length; p++) {
+  if (fabric[p] !== 1) continue;
+  let head = 0, tail = 1;
+  queue[0] = p;
+  fabric[p] = 2;
+  while (head < tail) {
+    const current = queue[head++];
+    const x = current % width;
+    const neighbors = [x > 0 ? current - 1 : -1, x < width - 1 ? current + 1 : -1, current - width, current + width];
+    for (const next of neighbors) {
+      if (next < 0 || next >= fabric.length || fabric[next] !== 1) continue;
+      fabric[next] = 2;
+      queue[tail++] = next;
+    }
+  }
+  if (tail > largestFabric.length) largestFabric = queue.slice(0, tail);
+}
+for (const p of largestFabric) {
+  const i = p * 4;
+  const coverage = Math.max(0, Math.min(1, (Math.max(shirt.data[i], shirt.data[i + 1], shirt.data[i + 2]) - 13) / 16));
+  shirtMask.data.set([255, 255, 255, Math.round(shirt.data[i + 3] * coverage)], i);
+}
+pngWrite(path.join(base, 'masques/tshirt.png'), shirtMask);
 const masks = Object.fromEntries(manifest.masks.map(name => [name, load(path.join(base, 'masques', `${name}.png`))]));
 const groups = [
   { id: 'peau', label: 'Peau', mask: 'peau', reference: 171, indices: [0, 1, 2], defaultColor: '#d99b61' },

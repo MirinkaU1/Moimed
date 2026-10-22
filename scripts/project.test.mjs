@@ -68,6 +68,41 @@ test('les bords anticrénelés de la pupille conservent leur part de blanc', () 
   assert.deepEqual([...tint(image, mask, '#ff0000', 5, true, [5, 4, 4]).data], [250, 122, 122, 255]);
 });
 
+const sourceShirt = PNG.sync.read(fs.readFileSync(path.join(root, 'assets/base/calques/30_tshirt.png')));
+const shirtMask = PNG.sync.read(fs.readFileSync(path.join(root, 'assets/base/masques/tshirt.png')));
+const pinkShirt = tint(sourceShirt, shirtMask, '#ff7099', 30);
+
+test('la recoloration du T-shirt ne touche pas les fragments du pantalon sous l’ourlet', () => {
+  for (const [x, y] of [[496, 904], [500, 904], [511, 904], [520, 904]]) {
+    assert.deepEqual(pixelAt(pinkShirt, x, y), pixelAt(sourceShirt, x, y), `trace sous l’ourlet à ${x},${y}`);
+  }
+});
+
+test('les contours noirs et pixels de bord du T-shirt restent intacts', () => {
+  for (let i = 0; i < sourceShirt.data.length; i += 4) {
+    if (!sourceShirt.data[i + 3]) continue;
+    const ink = Math.max(sourceShirt.data[i], sourceShirt.data[i + 1], sourceShirt.data[i + 2]) <= 13;
+    if (ink || sourceShirt.data[i + 3] <= 200) {
+      for (let c = 0; c < 4; c++) assert.equal(pinkShirt.data[i + c], sourceShirt.data[i + c], `contour modifié au pixel ${i / 4}`);
+    }
+  }
+});
+
+test('la peau au col et sous les deux manches ne prend pas la couleur du T-shirt', () => {
+  for (const [x, y] of [[561, 481], [559, 484], [500, 504], [328, 695], [359, 703], [372, 705], [697, 696], [663, 703], [651, 705]]) {
+    assert.deepEqual(pixelAt(pinkShirt, x, y), pixelAt(sourceShirt, x, y), `débordement sur la peau à ${x},${y}`);
+  }
+  for (let i = 0; i < sourceShirt.data.length; i += 4) {
+    if (!sourceShirt.data[i + 3] || sourceShirt.data[i] - sourceShirt.data[i + 2] <= 25) continue;
+    assert.equal(shirtMask.data[i + 3], 0, `peau incluse dans le masque au pixel ${i / 4}`);
+  }
+});
+
+test('le tissu principal du T-shirt reste personnalisable', () => {
+  const pixel = pixelAt(pinkShirt, 512, 650);
+  assert.ok(pixel[0] > 100 && pixel[0] > pixel[1], `tissu non recoloré : ${pixel}`);
+});
+
 test('le PSD contient une base visible de dix calques à la bonne position', () => {
   assert.equal(psd.width, 1024); assert.equal(psd.height, 1536);
   const base = psd.children.find(group => group.name.startsWith('01 -'));
@@ -91,6 +126,7 @@ test('les masques, références et exemple de couleur sont conservés séparéme
   assert.ok(masks.hidden && references.hidden && example.hidden);
   assert.equal(masks.children.length, 7); assert.equal(references.children.length, 3); assert.equal(example.children.length, 10);
   visibleEqual(masks.children.find(layer => layer.name === 'Masque - pupilles').imageData, pupilMask);
+  visibleEqual(masks.children.find(layer => layer.name === 'Masque - tshirt').imageData, shirtMask);
   for (const mask of manifest.masks) assert.ok(fs.existsSync(path.join(root, 'assets/base/masques', `${mask}.png`)));
   const expected = PNG.sync.read(fs.readFileSync(path.join(root, 'exports/exemple-couleurs.png')));
   visibleEqual(expected, compose([...example.children].reverse().map(layer => layer.imageData), 1024, 1536));
@@ -109,5 +145,6 @@ test('l’exemple web embarque les calques pour fonctionner sans fetch local', (
   assert.equal(data.layers.length, 10); assert.equal(Object.keys(data.masks).length, 7);
   assert.ok(data.layers.every(layer => layer.src.startsWith('data:image/png;base64,')));
   visibleEqual(PNG.sync.read(Buffer.from(data.masks.pupilles.split(',')[1], 'base64')), pupilMask);
+  visibleEqual(PNG.sync.read(Buffer.from(data.masks.tshirt.split(',')[1], 'base64')), shirtMask);
   for (const reference of data.references) assert.ok(fs.existsSync(path.resolve(root, 'exemple-web', reference.src)));
 });
