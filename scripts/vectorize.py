@@ -15,7 +15,7 @@ FINE = {"60_cheveux": dict(filter_speckle=8, color_precision=8, layer_difference
         "40_yeux": dict(filter_speckle=2, color_precision=8, layer_difference=10),
         "20_chaussure_gauche_image": dict(filter_speckle=4, color_precision=8, layer_difference=10),
         "21_chaussure_droite_image": dict(filter_speckle=4, color_precision=8, layer_difference=10)}
-QUANT = {"40_yeux": 3}
+QUANT = {"40_yeux": 2}
 SHOE_PALETTE = [(10, 9, 8), (40, 37, 35), (110, 102, 93), (232, 222, 207)]
 PALETTE = {"20_chaussure_gauche_image": SHOE_PALETTE, "21_chaussure_droite_image": SHOE_PALETTE}
 SLEEVE = {"01_bras_gauche_image": "30_tshirt", "02_bras_droit_image": "30_tshirt"}
@@ -24,9 +24,11 @@ SHADOW_DEPTH = 9
 HEM_BAND = {"30_tshirt": (660, 740), "10_pantalon": (850, 925)}
 UPSCALE = {"20_chaussure_gauche_image": 3, "21_chaussure_droite_image": 3}
 OPEN = {"01_bras_gauche_image", "02_bras_droit_image", "30_tshirt"}
+INKED_SKIN = {"30_tshirt"}
+INK = (12, 11, 10)
 RESTYLE = {"hoodie": dict(hem=dict(top=846, seam=858, bottom=914, left=368, right=658, outline=11, radius=14, clear=930, sag=6, line=6, rib=15, cuffs=(869, 898))), "short": {}}
-TINT = {"cheveux": dict(erode=19), "pupilles": {}, "tshirt": dict(ink=13), "pantalon": dict(ink=20), "hoodie": dict(ink=30, zone="alpha"),
-        "short": dict(ink=30), "peau": dict(ink=60), "jambes": dict(ink=60), "chaussures": dict(ink=20)}
+TINT = {"cheveux": dict(inset=4), "pupilles": {}, "tshirt": dict(ink=13), "pantalon": dict(ink=20), "hoodie": dict(ink=30, zone="alpha"),
+        "short": dict(ink=30), "peau": dict(ink=60, zone="alpha"), "jambes": dict(ink=60, zone="alpha"), "chaussures": dict(ink=20)}
 
 
 def main_run(px, width, y):
@@ -123,20 +125,44 @@ def trace(px, key, tmp, suffix=""):
     return re.search(r"<svg[^>]*>(.*)</svg>", open(svg).read(), re.S).group(1).strip()
 
 
+def shift(mask, dy, dx):
+    out = np.zeros_like(mask)
+    h, w = mask.shape
+    out[max(dy, 0):h + min(dy, 0), max(dx, 0):w + min(dx, 0)] = mask[max(-dy, 0):h + min(-dy, 0), max(-dx, 0):w + min(-dx, 0)]
+    return out
+
+
+def line_open(mask, length):
+    kept = np.zeros_like(mask)
+    for dy, dx in ((0, 1), (1, 0), (1, 1), (1, -1)):
+        core = mask.copy()
+        for step in range(1, length):
+            core &= shift(mask, -step * dy, -step * dx)
+        grown = core.copy()
+        for step in range(1, length):
+            grown |= shift(core, step * dy, step * dx)
+        kept |= grown
+    return kept
+
+
 def masked(px, mask, rule, k):
     full = px
     if k > 1:
         px = px.resize((px.width // k, px.height // k), Image.Resampling.NEAREST)
     alpha = px.getchannel("A")
     mask = mask.getchannel("A").point(lambda v: 255 if v >= 128 else 0)
-    if "erode" in rule:
-        region = alpha.filter(ImageFilter.MinFilter(rule["erode"])).filter(ImageFilter.MedianFilter(9))
+    if "inset" in rule:
+        region = alpha.filter(ImageFilter.GaussianBlur(rule["inset"])).point(lambda v: 255 if v >= 252 else 0)
     elif "ink" in rule:
         zone = alpha if rule.get("zone") == "alpha" else mask.filter(ImageFilter.MaxFilter(11)).filter(ImageFilter.MinFilter(11))
         r, g, b = px.convert("RGB").split()
         ink = ImageChops.lighter(ImageChops.lighter(r, g), b).point(lambda v: 255 if v <= rule["ink"] else 0)
-        ink = ink.filter(ImageFilter.MinFilter(5)).filter(ImageFilter.MaxFilter(7))
-        region = ImageChops.subtract(ImageChops.multiply(zone, alpha), ink).filter(ImageFilter.MedianFilter(5))
+        ink = binary(line_open(np.array(ink) > 0, 15)).filter(ImageFilter.MaxFilter(3))
+        region = ImageChops.subtract(ImageChops.multiply(zone, alpha), ink)
+        if rule.get("zone") != "alpha":
+            region = region.filter(ImageFilter.MedianFilter(5))
+        bright = ImageChops.lighter(ImageChops.lighter(r, g), b).point(lambda v: 255 if v > rule["ink"] else 0)
+        region = ImageChops.lighter(region, ImageChops.multiply(ImageChops.multiply(region.filter(ImageFilter.MaxFilter(5)), bright), alpha))
     else:
         region = mask
     if k > 1:
@@ -146,7 +172,6 @@ def masked(px, mask, rule, k):
     return out
 
 
-INK = (12, 11, 10)
 
 
 def binary(mask):
@@ -227,6 +252,18 @@ def draw_hem(im, alpha, tones, top, seam, bottom, left, right, outline, radius, 
                 px[x, y] = groove
 
 
+def grow(alpha, k, size=7):
+    small = alpha.resize((alpha.width // k, alpha.height // k), Image.Resampling.NEAREST) if k > 1 else alpha
+    grown = small.filter(ImageFilter.MaxFilter(size))
+    return grown.resize(alpha.size, Image.Resampling.NEAREST) if k > 1 else grown
+
+
+def cut(px, alpha):
+    out = Image.new("RGBA", px.size, (0, 0, 0, 0))
+    out.paste(px, mask=alpha)
+    return out
+
+
 def median_light(image):
     histogram = image.convert("L").histogram(mask=image.getchannel("A"))
     half, total = sum(histogram) / 2, 0
@@ -249,13 +286,21 @@ for index, (f, layer) in enumerate(zip(files, meta["layers"])):
     source = Image.open(f).convert("RGBA")
     if key in RESTYLE:
         source = restyle(source, **RESTYLE[key])
+    if key in INKED_SKIN:
+        pixels = np.array(source)
+        skin = pixels[..., 0].astype(int) - pixels[..., 2] > 25
+        pixels[skin, :3] = INK
+        source = Image.fromarray(pixels)
     px, k = prepare(source, key, layers)
     group = layer.get("recolor") or next((g for g in meta["groups"] if index in g["indices"]), None)
     tint = None
     if group:
         region = masked(px, Image.open(mask_files[group["mask"]]), TINT[group["mask"]], k)
+        inside = region.getchannel("A")
         tint = {"group": group["id"], "reference": median_light(region), "flat": group.get("flat", False),
-                "flatInk": group.get("flatInk", [0, 0, 0]), "body": trace(region, key, tmp, "-teinte")}
+                "flatInk": group.get("flatInk", [0, 0, 0]),
+                "body": trace(cut(px, ImageChops.multiply(grow(inside, k), px.getchannel("A"))), key, tmp, "-teinte"),
+                "overlay": trace(cut(px, ImageChops.subtract(px.getchannel("A"), inside)), key, tmp, "-contour")}
     traced.append({"id": NAMES[key], "label": layer["label"], "scale": 1 / k, "body": trace(px, key, tmp), "tint": tint})
 
 
@@ -268,6 +313,6 @@ svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1536" width="1
        + "\n".join(group_svg(layer) for layer in traced[:10]) + "\n</svg>\n")
 (ROOT / "documents/Moimed-Vectoriel.svg").write_text(svg)
 web = {key: meta[key] for key in ("width", "height", "groups", "preset", "wardrobe", "references")}
-web["layers"] = traced
+web["layers"] = [{**layer, "body": "" if layer["tint"] else layer["body"]} for layer in traced]
 (ROOT / "exemple-web/vector-data.js").write_text(f"globalThis.MOIMED_VECTOR = {json.dumps(web, ensure_ascii=False)};\n")
 print(len(svg) // 1024, "Ko SVG,", (ROOT / "exemple-web/vector-data.js").stat().st_size // 1024, "Ko atelier")

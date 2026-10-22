@@ -19,7 +19,7 @@
     const color = rgb(fill);
     if (tint.flat) return hex(color.map((value, c) => limit(value + target[c] - tint.flatInk[c])));
     const light = .2126 * color[0] + .7152 * color[1] + .0722 * color[2];
-    const shade = Math.max(.12, Math.min(1.6, light / tint.reference));
+    const shade = Math.max(.2, Math.min(1.4, Math.pow(light / tint.reference, .6)));
     return hex(target.map(value => limit(value * shade)));
   }
 
@@ -32,7 +32,9 @@
       const tint = document.createElementNS(SVG, 'g');
       tint.innerHTML = layer.tint.body;
       tint.querySelectorAll('path').forEach(path => { path.dataset.fill = path.getAttribute('fill'); });
-      group.append(tint);
+      const overlay = document.createElementNS(SVG, 'g');
+      overlay.innerHTML = layer.tint.overlay;
+      group.append(tint, overlay);
       group.tintPaths = [...tint.querySelectorAll('path')];
     }
     return group;
