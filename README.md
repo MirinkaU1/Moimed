@@ -22,18 +22,24 @@ Ouvrir `documents/Moimed-Personnage.svg`. Les dix images PNG sont incorporées d
 
 Ce SVG contient des **éléments bitmap**, pas des contours vectoriels éditables point par point. Il ne s'agit pas d'un fichier `.ai` natif. Une vraie version vectorielle demanderait un travail de tracé.
 
+## Version vectorielle
+
+`documents/Moimed-Vectoriel.svg` contient le personnage d'origine vectorisé à partir des dix calques, avec un groupe par élément. Les contours sont de vrais tracés éditables point par point.
+
+`scripts/vectorize.py` produit ce fichier et `exemple-web/vector-data.js`, qui contient les quatorze calques vectoriels de l'atelier (tenues modulaires comprises) et leurs zones recolorables. Le pull à capuche et le short y sont redessinés dans le style des autres vêtements (contour épais, aplats) et le bas du pull est élargi pour couvrir la taille du pantalon et du short. Pour régénérer après `npm run build` : `pip install vtracer pillow`, puis `python3 scripts/vectorize.py`.
+
 ## Exemple déjà implémenté
 
-Ouvrir `exemple-web/index.html` par double-clic. Les calques et masques sont incorporés dans `assets-data.js`, ce qui évite de charger un manifeste avec `fetch` depuis un fichier local.
+Ouvrir `exemple-web/index.html` par double-clic. Le personnage est affiché en SVG à partir de `vector-data.js`, qui évite de charger des fichiers avec `fetch` depuis un fichier local. `assets-data.js` conserve les calques bitmap et les masques d'origine pour la construction et les tests.
 
 L'exemple propose :
 
 - le choix indépendant du haut (T-shirt ou pull à capuche) et du bas (pantalon ou short), soit quatre associations ;
-- l'assemblage des vrais PNG transparents, avec remplacement automatique des bras par les mains et ajout des jambes selon la tenue ;
+- l'assemblage des calques vectoriels, avec remplacement automatique des bras par les mains et ajout des jambes selon la tenue ;
 - l'affichage ou le masquage de chaque calque ;
 - la recoloration de la peau, y compris les jambes et mains, des cheveux, du haut, du bas, des chaussures et des pupilles ;
 - un préréglage bleu et un retour à l'original ;
-- l'export du résultat en PNG transparent ;
+- l'export du résultat en SVG ou en PNG transparent ;
 - l'affichage des trois nouvelles tenues comme références complètes.
 
 On peut aussi lancer `Demarrer.cmd`, puis ouvrir `http://127.0.0.1:4173/`. Node.js suffit pour ce serveur local ; aucune installation de dépendance n'est nécessaire pour lancer l'exemple déjà généré.

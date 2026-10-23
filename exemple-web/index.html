@@ -4,18 +4,18 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Moimed — Atelier du personnage</title>
   <link rel="stylesheet" href="style.css">
-  <script defer src="pixels.js"></script><script defer src="assets-data.js"></script><script defer src="app.js"></script>
+  <script defer src="pixels.js"></script><script defer src="vector-data.js"></script><script defer src="app.js"></script>
 </head>
 <body>
-  <header><a href="index.html" class="brand">MOIMED<span>ATELIER PERSONNAGES</span></a><a class="file-link" href="../documents/Moimed-Personnage.psd" download>Ouvrir le PSD ↗</a></header>
+  <header><a href="index.html" class="brand">MOIMED<span>ATELIER PERSONNAGES</span></a><a class="file-link" href="../documents/Moimed-Vectoriel.svg" download>Ouvrir le SVG ↗</a></header>
   <main>
     <div class="intro"><div><p class="eyebrow">BIBLIOTHÈQUE MODULAIRE · VUE DE FACE</p><h1>Un personnage.<br>Des tenues à toi.</h1></div><p>Choisis un haut, un bas et tes couleurs.<br>Exporte ton personnage assemblé.</p></div>
     <div class="atelier">
       <aside class="panel"><h2>Personnaliser</h2><label class="model-row" for="top-model">Haut<select id="top-model"></select></label><label class="model-row" for="bottom-model">Bas<select id="bottom-model"></select></label><div id="color-controls"></div><div class="actions"><button id="preset">Exemple bleu</button><button id="reset" class="secondary">Original</button></div><details><summary>Afficher les calques <span id="layer-count">10</span></summary><div id="layers"></div></details></aside>
-      <section class="stage-panel"><div class="stage-bar"><span id="view-title">Base à calques</span><span id="canvas-size">1024 × 1536</span></div><div class="stage"><canvas id="preview" width="1024" height="1536" aria-label="Personnage assemblé à partir de calques interchangeables"></canvas><img id="reference-image" alt="Tenue complète de référence" hidden></div><p id="view-note">Les couleurs modifient les surfaces sélectionnées en conservant les contours.</p><button id="export" class="export">Exporter le PNG transparent ↓</button></section>
+      <section class="stage-panel"><div class="stage-bar"><span id="view-title">Base à calques</span><span id="canvas-size">Vectoriel · 1024 × 1536</span></div><div class="stage"><svg id="preview" viewBox="0 0 1024 1536" width="1024" height="1536" role="img" aria-label="Personnage vectoriel assemblé à partir de calques interchangeables"></svg><img id="reference-image" alt="Tenue complète de référence" hidden></div><p id="view-note">Les couleurs modifient les surfaces sélectionnées en conservant les contours et les nuances.</p><div class="exports"><button id="export-svg" class="export">Exporter le SVG ↓</button><button id="export" class="export secondary">Exporter le PNG ↓</button></div></section>
       <aside class="references"><p class="eyebrow">IMAGES VALIDÉES</p><h2>Tenues de référence</h2><p class="reference-note">Les chemises et pulls ci-dessous restent des références. Le pull à capuche et le short sont disponibles dans les choix Haut et Bas.</p><button class="reference base active" id="base-view">← Revenir aux calques</button><div id="references"></div></aside>
     </div>
-    <footer>Les fichiers source restent dans <code>assets/base/</code>. <a href="../README.md">Guide du projet</a><span id="status" role="status">Chargement des calques…</span></footer>
+    <footer>Le personnage est vectorisé depuis <code>assets/base/</code> et <code>assets/modulaires/</code>. <a href="../README.md">Guide du projet</a><span id="status" role="status">Chargement…</span></footer>
   </main>
 </body>
 </html>
